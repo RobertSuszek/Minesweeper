@@ -8,23 +8,35 @@ namespace Minesweeper
 {
     class Program
     {
-        
-
         static int Main()
         {
-            Game game = new Game(Difficulty.nonstandard, 300, 300, 900);
-            CellType[][] board = game.GetBoard();
+            Game game = new Game(Difficulty.hard);
+            Random random = new Random();
+            do
+            {
+                Console.Clear();
+                game.MakeMove(random.Next(0, game.GetHeight() - 1), random.Next(0, game.GetWidth() - 1));
+                DisplayBoard(game);
+            } while (game.GameData.isRunning);
 
+            if (game.GameData.win)
+                Console.WriteLine("Wygrana!");
+            else if (game.GameData.lose)
+                Console.WriteLine("Przegrana...");
+
+            return 0;
+        }
+
+        static void DisplayBoard(Game game)
+        {
             for (int x = 0; x < game.GetWidth(); x++)
             {
                 for (int y = 0; y < game.GetHeight(); y++)
                 {
-                    DisplayBoardElem(board[x][y]);
+                    DisplayBoardElem(game.GameData.board[x][y]);
                 }
                 Console.WriteLine();
             }
-
-            return 0;
         }
 
         static void DisplayBoardElem(CellType cell)
@@ -60,6 +72,9 @@ namespace Minesweeper
                     break;
                 case CellType.eight:
                     Console.Write("8 ");
+                    break;
+                case CellType.notVisible:
+                    Console.Write("? ");
                     break;
             }
         }

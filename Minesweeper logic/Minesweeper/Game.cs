@@ -7,31 +7,114 @@ using System.Threading.Tasks;
 namespace Minesweeper
 {
     enum Difficulty { easy, medium, hard, nonstandard };
-    enum CellType { bomb = -1, zero, one, two, three, four, five, six, seven, eight, undefined }
+    enum CellType { bomb = -1, zero, one, two, three, four, five, six, seven, eight, notVisible, undefined }
 
     struct Cell
     {
         public int x;
         public int y;
         public bool isBomb;
+        public bool isVisible;
         public int adjacentBombCount;
     };
 
+    struct GameData
+    {
+        public bool win;
+        public bool lose;
+        public bool isRunning;
+        public CellType[][] board;
+    }
+
     class Game
     {
-        private int width;
-        private int height;
-        private int bombCount;
-        private Cell[][] board;
-
+        public GameData GameData;
         public int GetWidth() { return width; }
         public int GetHeight() { return height; }
+
+        public void MakeMove(int Y, int X)
+        {
+            HandleMove(X, Y);
+
+            SetCellTypeBoard();
+
+            if (board[X][Y].isBomb)
+            {
+                GameData.lose = true;
+                GameData.isRunning = false;
+            }
+            if (CheckWinConditions() && !GameData.lose)
+            {
+                GameData.win = true;
+                GameData.isRunning = false;
+            }
+        }
+
+        public Game(Difficulty diff, int Width = 8, int Height = 8, int BombCount = 10)
+        {
+            SetDifficulty(diff, Width, Height, BombCount);
+            InitializeBoard();
+            SetupBombs();
+            SetupAdjacentBombCounts();
+        }
+
+        private bool CheckWinConditions()
+        {
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    if (!board[x][y].isVisible && !board[x][y].isBomb)
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        private void HandleMove(int X, int Y)
+        {
+            if (!board[X][Y].isVisible)
+            {
+                board[X][Y].isVisible = true;
+                if (board[X][Y].adjacentBombCount == 0)
+                {
+                    if (X > 0 && Y > 0)
+                        HandleMove(X - 1, Y - 1);
+                    if (Y > 0)
+                        HandleMove(X, Y - 1);
+                    if (X < width - 1 && Y > 0)
+                        HandleMove(X + 1, Y - 1);
+                    if (X > 0)
+                        HandleMove(X - 1, Y);
+                    if (X < width - 1)
+                        HandleMove(X + 1, Y);
+                    if (X > 0 && Y < height - 1)
+                        HandleMove(X - 1, Y + 1);
+                    if (Y < height - 1)
+                        HandleMove(X, Y + 1);
+                    if (X < width - 1 && Y < height - 1)
+                        HandleMove(X + 1, Y + 1);
+                } 
+            }
+        }
+
+        private void SetCellTypeBoard()
+        {
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                    GameData.board[x][y] = GetCellType(board[x][y]);
+            }
+        }
 
         private CellType GetCellType(Cell cell)
         {
             CellType celltype = CellType.undefined;
 
-            switch(cell.adjacentBombCount)
+            if (!cell.isVisible)
+                return CellType.notVisible;
+
+            switch (cell.adjacentBombCount)
             {
                 case -1:
                     celltype = CellType.bomb;
@@ -65,22 +148,6 @@ namespace Minesweeper
                     break;
             }
             return celltype;
-        }
-
-        public CellType[][] GetBoard()
-        {
-            CellType[][] cellTypeBoard;
-            cellTypeBoard = new CellType[width][];
-            for (int i = 0; i < width; i++)
-                cellTypeBoard[i] = new CellType[height];
-
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                    cellTypeBoard[x][y] = GetCellType(board[x][y]);
-            }
-
-            return cellTypeBoard;
         }
 
         private int CalculateAdjacentBombCount(Cell cell)
@@ -177,9 +244,18 @@ namespace Minesweeper
                     board[x][y].x = x;
                     board[x][y].y = y;
                     board[x][y].isBomb = false;
+                    board[x][y].isVisible = false;
                     board[x][y].adjacentBombCount = 0;
                 }
             }
+            GameData.lose = false;
+            GameData.win = false;
+            GameData.isRunning = true;
+            GameData.board = new CellType[width][];
+            for (int i = 0; i < width; i++)
+                GameData.board[i] = new CellType[height];
+
+            SetCellTypeBoard();
         }
 
         private void SetDifficulty(Difficulty diff, int Width, int Height, int BombCount)
@@ -209,12 +285,9 @@ namespace Minesweeper
             }
         }
 
-        public Game(Difficulty diff, int Width = 8, int Height = 8, int BombCount = 10)
-        {
-            SetDifficulty(diff, Width, Height, BombCount);
-            InitializeBoard();
-            SetupBombs();
-            SetupAdjacentBombCounts();
-        }
+        private int width;
+        private int height;
+        private int bombCount;
+        private Cell[][] board;
     }
 }
