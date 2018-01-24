@@ -12,7 +12,7 @@ namespace Minesweeper
 
         static int Main()
         {
-            Game game = new Game(Difficulty.medium);
+            Game game = new Game(Difficulty.nonstandard, 300, 300, 900);
             CellType[][] board = game.GetBoard();
 
             for (int x = 0; x < game.GetWidth(); x++)
