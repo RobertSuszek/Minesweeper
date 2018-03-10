@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Minesweeper
 {
-    enum Difficulty { Easy, Medium, Hard, Nonstandard };
+    enum Difficulty { Easy, Medium, Hard, Nonstandard }
     enum CellType { Bomb = -1, Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Flag, NotVisible, Undefined }
-    enum MoveType { Exposure, Flag }
+    public enum MoveType { Expose, Flag, ExposeAdjacent, Undefined }
 
     struct Cell
     {
@@ -38,12 +38,30 @@ namespace Minesweeper
         {
             switch (type)
             {
-                case MoveType.Exposure:
-                    RevealCell(X, Y);
-                    if (board[X][Y].isBomb)
+                case MoveType.Expose:
+                    if (firstMove)
                     {
-                        GameData.lose = true;
-                        GameData.isRunning = false;
+                        SetupBombs(X, Y);
+                        SetupAdjacentBombCounts();
+                        firstMove = false;
+                    }
+                    if (!board[X][Y].isFlag)
+                        RevealCell(X, Y);
+                    if (board[X][Y].isBomb)
+                        Lose();
+                    break;
+                case MoveType.ExposeAdjacent:
+                    if (firstMove)
+                    {
+                        SetupBombs(X, Y);
+                        SetupAdjacentBombCounts();
+                        firstMove = false;
+                    }
+                    List<Cell> cells = GetAdjacentCells(X, Y);
+                    if (GetAdjacentFlagCount(cells) == board[X][Y].adjacentBombCount)
+                    {
+                        foreach (Cell cell in cells)
+                            RevealCell(cell.x, cell.y);
                     }
                     break;
                 case MoveType.Flag:
@@ -53,10 +71,8 @@ namespace Minesweeper
                     break;
             }
             if (CheckWinConditions() && !GameData.lose)
-            {
-                GameData.win = true;
-                GameData.isRunning = false;
-            }
+                Win();
+
             SetCellTypeBoard();
         }
 
@@ -64,65 +80,77 @@ namespace Minesweeper
         {
             SetDifficulty(diff, Width, Height, BombCount);
             InitializeBoard();
-            SetupBombs();
-            SetupAdjacentBombCounts();
+            
+        }
+
+        private void Lose()
+        {
+            GameData.lose = true;
+            GameData.isRunning = false;
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                    RevealCell(x, y);
+            }
+        }
+
+        private void Win()
+        {
+            GameData.win = true;
+            GameData.isRunning = false;
         }
 
         private void ToggleFlag(int X, int Y)
         {
-            if (board[X][Y].isFlag)
-            {
-                board[X][Y].isFlag = false;
-                flagCount--;
-            }
-            else if (!board[X][Y].isFlag)
-            {
-                board[X][Y].isFlag = true;
-                flagCount++;
+            if (!board[X][Y].isVisible)
+            { 
+                if (board[X][Y].isFlag)
+                {
+                    board[X][Y].isFlag = false;
+                }
+                else if (!board[X][Y].isFlag)
+                {
+                    board[X][Y].isFlag = true;
+                }
             }
         }
 
         private bool CheckWinConditions()
         {
-            int unrevealedCount = 0;
+            int flagsOnBombsCount = 0;
+            int unrevealedBombs = 0;
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < height; y++)
                 {
-                    if (!board[x][y].isVisible)
-                        unrevealedCount++;
-
-                    if (unrevealedCount + flagCount > bombCount)
+                    if (!board[x][y].isBomb && !board[x][y].isVisible)
                         return false;
+
+                    if (board[x][y].isBomb && board[x][y].isFlag)
+                        flagsOnBombsCount++;
+
+                    if (board[x][y].isBomb && !board[x][y].isVisible && !board[x][y].isFlag)
+                        unrevealedBombs++;
                 }
             }
-            return true;
+            if ((flagsOnBombsCount + unrevealedBombs )== bombCount)
+                return true;
+            else
+                return false;
         }
 
         private void RevealCell(int X, int Y)
         {
+            List<Cell> cells = GetAdjacentCells(X, Y);
+
             if (!board[X][Y].isVisible)
             {
                 board[X][Y].isVisible = true;
                 if (board[X][Y].adjacentBombCount == 0)
                 {
-                    if (X > 0 && Y > 0)
-                        RevealCell(X - 1, Y - 1);
-                    if (Y > 0)
-                        RevealCell(X, Y - 1);
-                    if (X < width - 1 && Y > 0)
-                        RevealCell(X + 1, Y - 1);
-                    if (X > 0)
-                        RevealCell(X - 1, Y);
-                    if (X < width - 1)
-                        RevealCell(X + 1, Y);
-                    if (X > 0 && Y < height - 1)
-                        RevealCell(X - 1, Y + 1);
-                    if (Y < height - 1)
-                        RevealCell(X, Y + 1);
-                    if (X < width - 1 && Y < height - 1)
-                        RevealCell(X + 1, Y + 1);
-                } 
+                    foreach (Cell cell in cells)
+                        RevealCell(cell.x, cell.y);
+                }
             }
         }
 
@@ -187,7 +215,7 @@ namespace Minesweeper
                 if (board[cell.x][cell.y - 1].isBomb)
                     bombCount++;
             }
-            if (cell.x < width-1 && cell.y > 0)
+            if (cell.x < width - 1 && cell.y > 0)
             {
                 if (board[cell.x + 1][cell.y - 1].isBomb)
                     bombCount++;
@@ -226,13 +254,16 @@ namespace Minesweeper
         {
             for (int x = 0; x < width; x++)
             {
-                for(int y = 0; y < height; y++)
+                for (int y = 0; y < height; y++)
                     board[x][y].adjacentBombCount = CalculateAdjacentBombCount(board[x][y]);
             }
         }
 
-        private void SetupBombs()
+        private void SetupBombs(int X, int Y)
         {
+            bool canPlace = false;
+            List<Cell> cells = GetAdjacentCells(X, Y);
+            cells.Add(board[X][Y]);
             Random random = new Random();
             int randomX;
             int randomY;
@@ -243,14 +274,23 @@ namespace Minesweeper
                 randomX = random.Next(0, width);
                 randomY = random.Next(0, height);
 
-                if (!board[randomX][randomY].isBomb)
+                foreach (Cell cell in cells)
+                {
+                    if (cell.x == randomX && cell.y == randomY)
+                    {
+                        canPlace = false;
+                        break;
+                    }
+                    canPlace = true;
+                }
+
+                if (!board[randomX][randomY].isBomb && canPlace)
                 {
                     board[randomX][randomY].isBomb = true;
                     board[randomX][randomY].adjacentBombCount = -1;
                     i++;
                 }
             }
-
         }
 
         private void InitializeBoard()
@@ -304,13 +344,48 @@ namespace Minesweeper
                     bombCount = BombCount;
                     break;
             }
-            flagCount = 0;
+            firstMove = true;
+        }
+
+        private List<Cell> GetAdjacentCells(int X, int Y)
+        {
+            List<Cell> cells = new List<Cell>();
+            if (X > 0 && Y > 0)
+                cells.Add(board[X - 1][Y - 1]);
+            if (Y > 0)
+                cells.Add(board[X][Y - 1]);
+            if (X < width - 1 && Y > 0)
+                cells.Add(board[X + 1][Y - 1]);
+            if (X > 0)
+                cells.Add(board[X - 1][Y]);
+            if (X < width - 1)
+                cells.Add(board[X + 1][Y]);
+            if (X > 0 && Y < height - 1)
+                cells.Add(board[X - 1][Y + 1]);
+            if (Y < height - 1)
+                cells.Add(board[X][Y + 1]);
+            if (X < width - 1 && Y < height - 1)
+                cells.Add(board[X + 1][Y + 1]);
+
+            return cells;
+        }
+
+        private int GetAdjacentFlagCount(List<Cell> cells)
+        {
+            int flagCount = 0;
+
+            foreach (Cell cell in cells)
+            {
+                if (cell.isFlag)
+                    flagCount++;
+            }
+            return flagCount;
         }
 
         private int width;
         private int height;
         private int bombCount;
-        private int flagCount;
+        private bool firstMove;
         private Cell[][] board;
     }
 }

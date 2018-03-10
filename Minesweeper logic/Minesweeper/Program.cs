@@ -10,13 +10,15 @@ namespace Minesweeper
     {
         static int Main()
         {
-            Game game = new Game(Difficulty.hard);
+            Game game = new Game(Difficulty.Easy);
             Random random = new Random();
             do
             {
                 Console.Clear();
-                game.MakeMove(random.Next(0, game.GetHeight() - 1), random.Next(0, game.GetWidth() - 1));
+                //game.MakeMove(random.Next(0, game.GetHeight() - 1), random.Next(0, game.GetWidth() - 1), MoveType.Exposure);
+                game.MakeMove(0, 0, MoveType.Flag);
                 DisplayBoard(game);
+                Console.ReadKey();
             } while (game.GameData.isRunning);
 
             if (game.GameData.win)
@@ -43,37 +45,40 @@ namespace Minesweeper
         {
             switch (cell)
             {
-                case CellType.bomb:
+                case CellType.Flag:
+                    Console.Write("F ");
+                    break;
+                case CellType.Bomb:
                     Console.Write("B ");
                     break;
-                case CellType.zero:
+                case CellType.Zero:
                     Console.Write("0 ");
                     break;
-                case CellType.one:
+                case CellType.One:
                     Console.Write("1 ");
                     break;
-                case CellType.two:
+                case CellType.Two:
                     Console.Write("2 ");
                     break;
-                case CellType.three:
+                case CellType.Three:
                     Console.Write("3 ");
                     break;
-                case CellType.four:
+                case CellType.Four:
                     Console.Write("4 ");
                     break;
-                case CellType.five:
+                case CellType.Five:
                     Console.Write("5 ");
                     break;
-                case CellType.six:
+                case CellType.Six:
                     Console.Write("6 ");
                     break;
-                case CellType.seven:
+                case CellType.Seven:
                     Console.Write("7 ");
                     break;
-                case CellType.eight:
+                case CellType.Eight:
                     Console.Write("8 ");
                     break;
-                case CellType.notVisible:
+                case CellType.NotVisible:
                     Console.Write("? ");
                     break;
             }
